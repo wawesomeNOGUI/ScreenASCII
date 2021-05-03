@@ -11,16 +11,20 @@ using namespace std;
 int nScreenWidth = GetSystemMetrics(SM_CXSCREEN);
 int nScreenHeight = GetSystemMetrics(SM_CYSCREEN);
 //HWND hDesktopWnd = GetDesktopWindow();
-HWND hwnd = ::FindWindow(0,"Minecraft 1.16.5 - Singleplayer");
+HWND hwnd = ::FindWindow(0,"Minecraft 1.16.5 - Multiplayer (3rd-party Server)");
+//HWND hwnd = ::FindWindow(0,"Rocket League (64-bit, DX11, Cooked)");
 HDC hDesktopDC = GetDC(NULL);
 //HDC hDesktopDC =  CreateDC("DISPLAY", NULL, NULL, NULL);
 HDC hMyDC = CreateCompatibleDC(hDesktopDC);
 HBITMAP hMyBmp = CreateCompatibleBitmap(hDesktopDC, nScreenWidth, nScreenHeight);
 HBITMAP hOlBmp = (HBITMAP)::SelectObject(hMyDC,hMyBmp);
 
+
 RGBQUAD *pPixels = new RGBQUAD[nScreenWidth * nScreenHeight];
 BITMAPINFO bmi = {0};
 
+//Color For background
+const COLORREF backgroundColor = 0x00000000;
 
 
 void DrawAscii()
@@ -42,16 +46,27 @@ void DrawAscii()
   // Draw ASCII
   //LPCSTR s [nScreenWidth/8 * nScreenHeight/8];  //array to store characters
 
-  LPCSTR s = "H";
-  SetBkColor(hMyDC, RGB(0, 0, 0));
-  //Rectangle(hMyDC,0,0,nScreenWidth,nScreenHeight);
+  char buffer [33];
+  //LPCSTR s = itoa(254, buffer, 16);
+  LPCSTR s = ".";
+
+//BeginPaint(hDesktopWnd , &ps);
+
+            // Because the default brush is white, select
+            // a different brush into the device context
+
+//SelectObject(ps.hdc, GetStockObject(BLACK_BRUSH));
+    SetBkColor(hMyDC, RGB(0, 0, 0));
+
+  Rectangle(hMyDC,0,0,nScreenWidth,nScreenHeight);
+
+//EndPaint(hDesktopWnd , &ps);
 
 
   // Parse pixels for color and then draw le text
     for(int y = 0; y < nScreenHeight; y+=12){
         for(int x = 0; x < nScreenWidth; x+=12){
             int p = (nScreenHeight-y-1)*nScreenWidth+x; // flip the right way, 0,0 in top left
-
             SetTextColor(hMyDC, RGB(pPixels[p].rgbRed, pPixels[p].rgbGreen, pPixels[p].rgbBlue));
             //SetTextColor(hMyDC, RGB(1, y, 1));
             TextOutA(hMyDC, x, y, s, strlen(s));
@@ -65,7 +80,7 @@ void DrawAscii()
     //Draw Everything
     //HDC appDC = ::GetDC(hwnd);
     //::BitBlt(appDC,100,100,nScreenWidth,nScreenHeight, hMyDC,0,0,SRCCOPY);
-    ::BitBlt(hDesktopDC,nScreenWidth/2,0,nScreenWidth/2,nScreenHeight/2, hMyDC,0,0,SRCCOPY);
+    ::BitBlt(hDesktopDC,nScreenWidth/2,0,nScreenWidth/2,nScreenHeight/2+250, hMyDC,0,0,SRCCOPY);
     //::SelectObject(hMyDC,hOlBmp);
     //::DeleteObject(hMyBmp);
     //::DeleteDC(hMyDC);
@@ -100,6 +115,8 @@ void DrawAscii()
 }
 
 int main(){
+  //setBackgroundColor
+  SelectObject(hMyDC, CreateSolidBrush(backgroundColor));
   int where = 0;
 
   bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
