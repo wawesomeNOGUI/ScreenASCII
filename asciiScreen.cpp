@@ -26,6 +26,8 @@ BITMAPINFO bmi = {0};
 //Color For background
 const COLORREF backgroundColor = 0x00000000;
 
+wchar_t b = 0x25A0;  //square
+//wchar_t b = '\u2532';
 
 void DrawAscii()
 {
@@ -46,9 +48,11 @@ void DrawAscii()
   // Draw ASCII
   //LPCSTR s [nScreenWidth/8 * nScreenHeight/8];  //array to store characters
 
-  char buffer [33];
-  //LPCSTR s = itoa(254, buffer, 16);
-  LPCSTR s = ".";
+  //char buffer [33];
+  //itoa(120, buffer, 8);
+
+  LPCWSTR s = &b;
+  //LPCSTR s = ".";
 
 //BeginPaint(hDesktopWnd , &ps);
 
@@ -56,7 +60,7 @@ void DrawAscii()
             // a different brush into the device context
 
 //SelectObject(ps.hdc, GetStockObject(BLACK_BRUSH));
-    SetBkColor(hMyDC, RGB(0, 0, 0));
+  SetBkColor(hMyDC, RGB(0, 0, 0));
 
   Rectangle(hMyDC,0,0,nScreenWidth,nScreenHeight);
 
@@ -69,7 +73,8 @@ void DrawAscii()
             int p = (nScreenHeight-y-1)*nScreenWidth+x; // flip the right way, 0,0 in top left
             SetTextColor(hMyDC, RGB(pPixels[p].rgbRed, pPixels[p].rgbGreen, pPixels[p].rgbBlue));
             //SetTextColor(hMyDC, RGB(1, y, 1));
-            TextOutA(hMyDC, x, y, s, strlen(s));
+            //TextOutA(hMyDC, x, y, s, strlen(s));
+            TextOutW(hMyDC, x, y, s, wcslen(s));
 
         }
     }
