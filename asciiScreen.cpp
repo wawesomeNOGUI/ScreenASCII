@@ -11,7 +11,7 @@ using namespace std;
 int nScreenWidth = GetSystemMetrics(SM_CXSCREEN);
 int nScreenHeight = GetSystemMetrics(SM_CYSCREEN);
 //HWND hDesktopWnd = GetDesktopWindow();
-HWND hwnd = ::FindWindow(0,"Minecraft 1.16.5 - Multiplayer (3rd-party Server)");
+HWND hwnd = ::FindWindow(0,"Minecraft 1.16.5");
 //HWND hwnd = ::FindWindow(0,"Rocket League (64-bit, DX11, Cooked)");
 HDC hDesktopDC = GetDC(NULL);
 //HDC hDesktopDC =  CreateDC("DISPLAY", NULL, NULL, NULL);
@@ -28,6 +28,9 @@ const COLORREF backgroundColor = 0x00000000;
 
 wchar_t b = 0x25A0;  //square
 //wchar_t b = '\u2532';
+//wchar_t b = 'H';
+//wchar_t b = 0x20BF;
+
 
 void DrawAscii()
 {
@@ -52,12 +55,6 @@ void DrawAscii()
   //itoa(120, buffer, 8);
 
   LPCWSTR s = &b;
-  //LPCSTR s = ".";
-
-//BeginPaint(hDesktopWnd , &ps);
-
-            // Because the default brush is white, select
-            // a different brush into the device context
 
 //SelectObject(ps.hdc, GetStockObject(BLACK_BRUSH));
   SetBkColor(hMyDC, RGB(0, 0, 0));
@@ -66,20 +63,40 @@ void DrawAscii()
 
 //EndPaint(hDesktopWnd , &ps);
 
+    using std::chrono::high_resolution_clock;
+    using std::chrono::duration_cast;
+    using std::chrono::duration;
+    using std::chrono::milliseconds;
+
+SetTextColor(hMyDC, RGB(50, 1, 1));
+
+
+auto t1 = high_resolution_clock::now();
 
   // Parse pixels for color and then draw le text
+//  for(int i = 0; i<1000; i++){
+//    TextOutW(hMyDC, i*10, 25, s, 1);
+    //cout << *s;
+//  }
     for(int y = 0; y < nScreenHeight; y+=12){
         for(int x = 0; x < nScreenWidth; x+=12){
             int p = (nScreenHeight-y-1)*nScreenWidth+x; // flip the right way, 0,0 in top left
             SetTextColor(hMyDC, RGB(pPixels[p].rgbRed, pPixels[p].rgbGreen, pPixels[p].rgbBlue));
-            //SetTextColor(hMyDC, RGB(1, y, 1));
+            //SetTextColor(hMyDC, RGB(1, 1, 1));
             //TextOutA(hMyDC, x, y, s, strlen(s));
-            TextOutW(hMyDC, x, y, s, wcslen(s));
+            //TextOutW(hMyDC, x, y, s, wcslen(s));  //only use wcslen for a string, not a single character
 
-        }
+            TextOutW(hMyDC, x, y, s, 1);
+
+
+       }
     }
 
-    exitLoop:;
+auto t2 = high_resolution_clock::now();
+
+  //  auto ms_int = duration_cast<milliseconds>(t2 - t1);
+duration<double, std::milli> ms_double = t2 - t1;
+    //cout << ms_double.count() << "ms\n";
 
 
     //Draw Everything
