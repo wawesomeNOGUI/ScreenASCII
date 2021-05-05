@@ -12,6 +12,7 @@ int nScreenWidth = GetSystemMetrics(SM_CXSCREEN);
 int nScreenHeight = GetSystemMetrics(SM_CYSCREEN);
 //HWND hDesktopWnd = GetDesktopWindow();
 HWND hwnd = ::FindWindow(0,"Minecraft 1.16.5");
+//HWND hwnd = ::FindWindow(0,"Command Prompt - a.exe");
 //HWND hwnd = ::FindWindow(0,"Rocket League (64-bit, DX11, Cooked)");
 HDC hDesktopDC = GetDC(NULL);
 //HDC hDesktopDC =  CreateDC("DISPLAY", NULL, NULL, NULL);
@@ -26,11 +27,14 @@ BITMAPINFO bmi = {0};
 //Color For background
 const COLORREF backgroundColor = 0x00000000;
 
-wchar_t b = 0x25A0;  //square
+//wchar_t b = 0x25A0;  //square
 //wchar_t b = '\u2532';
-//wchar_t b = 'H';
-//wchar_t b = 0x20BF;
+wchar_t b = 'X';
+//wchar_t b = 0x6F22;
 
+void search(){
+  b++;
+}
 
 void DrawAscii()
 {
@@ -57,7 +61,7 @@ void DrawAscii()
   LPCWSTR s = &b;
 
 //SelectObject(ps.hdc, GetStockObject(BLACK_BRUSH));
-  SetBkColor(hMyDC, RGB(0, 0, 0));
+  //SetBkColor(hMyDC, RGB(0, 0, 0));
 
   Rectangle(hMyDC,0,0,nScreenWidth,nScreenHeight);
 
@@ -86,7 +90,9 @@ auto t1 = high_resolution_clock::now();
             //TextOutA(hMyDC, x, y, s, strlen(s));
             //TextOutW(hMyDC, x, y, s, wcslen(s));  //only use wcslen for a string, not a single character
 
-            TextOutW(hMyDC, x, y, s, 1);
+            //TextOutW(hMyDC, x, y, s, 1);
+            SetBkColor(hMyDC, RGB(pPixels[p].rgbRed, pPixels[p].rgbGreen, pPixels[p].rgbBlue));
+            ExtTextOutW(hMyDC, x, y, ETO_OPAQUE, NULL, s, 1, NULL);
 
 
        }
@@ -150,6 +156,7 @@ int main(){
 
   start:
     DrawAscii();
+    //search();
     //Maybe take this pause out
     //std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
