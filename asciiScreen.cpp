@@ -92,7 +92,7 @@ auto t1 = high_resolution_clock::now();
 
             //TextOutW(hMyDC, x, y, s, 1);
             SetBkColor(hMyDC, RGB(pPixels[p].rgbRed, pPixels[p].rgbGreen, pPixels[p].rgbBlue));
-            ExtTextOutW(hMyDC, x, y, ETO_OPAQUE, NULL, s, 1, NULL);
+            ExtTextOutW(hMyDC, x, y, ETO_OPAQUE | ETO_IGNORELANGUAGE, NULL, s, 1, NULL);
 
 
        }
