@@ -1,0 +1,1 @@
+gcc ASCIIScreen.cpp -mwindows
