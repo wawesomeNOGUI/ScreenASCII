@@ -4,11 +4,17 @@
 
 #include <windows.h>
 #include <stdio.h>
+#include <time.h>
 
-const COLORREF backgroundColor = 0x00000000;
+// character(s) to draw on screen
+const int CHARS = 6;
+const char charString[CHARS] = "GAMER";
+wchar_t myChar;
+LPCWSTR c = &myChar;
 
-// character to draw on screen
-const wchar_t b = 'X';
+const COLORREF TRANSPARENT_COLOR = RGB(0, 0, 0);
+const COLORREF BACKGROUND_COLOR = RGB(1, 1, 1);
+
 
 int myWidth, myHeight;
 int monitorWidth, monitorHeight;
@@ -51,10 +57,20 @@ HWND CreateFullscreenWindow(HMONITOR hmon, HINSTANCE *hInstance, MONITORINFOEX *
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+void Wineventproc(
+  HWINEVENTHOOK hWinEventHook,
+  DWORD event,
+  HWND hwnd,
+  LONG idObject,
+  LONG idChild,
+  DWORD idEventThread,
+  DWORD dwmsEventTime
+);
 void DrawAscii();
 
 int main()
 {
+    srand(time(0));
     HINSTANCE hInstance;
 
     // Register the window class.
@@ -102,10 +118,25 @@ int main()
     SetWindowLong(hwnd, GWL_EXSTYLE, WS_EX_TRANSPARENT | WS_EX_LAYERED);
 
     // Make black pixels transparent:
-    SetLayeredWindowAttributes(hwnd, RGB(0,0,0), 0, LWA_COLORKEY);
+    SetLayeredWindowAttributes(hwnd, TRANSPARENT_COLOR, 0, LWA_COLORKEY);
 
     // set window to always on top
     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+
+
+    // Set event listener for when user's foreground window changes
+    // to redraw ascii screen
+    SetWinEventHook(
+        EVENT_SYSTEM_FOREGROUND,
+        EVENT_SYSTEM_FOREGROUND,
+        NULL,
+        Wineventproc,   // hook function
+        0,  // receive events from all process on current desktop
+        0,  // hook function assciated with existing threads on desktop
+        WINEVENT_OUTOFCONTEXT
+    );
+
+
 
     // Setup for drawing
     // https://learn.microsoft.com/en-us/windows/win32/gdi/capturing-an-image
@@ -124,7 +155,7 @@ int main()
 
 	// printf("%d", nScreenWidth * nScreenHeight * sizeof(RGBQUAD));
 
-	SelectObject(hMyDC, CreateSolidBrush(backgroundColor));
+	// SelectObject(hMyDC, CreateSolidBrush(backgroundColor));
 
 	bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
 	bmi.bmiHeader.biWidth = myWidth;
@@ -142,6 +173,20 @@ int main()
     }
 
     return 0;
+}
+
+void Wineventproc(
+  HWINEVENTHOOK hWinEventHook,
+  DWORD event,
+  HWND hwnd,
+  LONG idObject,
+  LONG idChild,
+  DWORD idEventThread,
+  DWORD dwmsEventTime
+)
+{
+    printf("Foreground window changed\n");
+    // InvalidateRect(WindowFromDC(hMyDC), NULL, true);
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -165,9 +210,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
             // printf("%d\n", x);
 
-            RECT rectTest;
-            GetClientRect(hwnd, &rectTest);
-            FillRect(hMyDC, &rectTest, (HBRUSH) (COLOR_WINDOWTEXT+1));
+            RECT rect;
+            GetClientRect(hwnd, &rect);
+
+            // RGB(0, 0, 0) is the transparent color defined at top
+            // FillRect(hMyDC, &rect, CreateSolidBrush(TRANSPARENT_COLOR));
+            FillRect(hMyDC, &rect, CreateSolidBrush(BACKGROUND_COLOR));
 
             DrawAscii();
 
@@ -176,9 +224,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             // RECT rect;
             // GetClientRect(hwnd, &rect);
 
-            Sleep(0.5); // thread sleep in milliseconds
+            // Sleep(0.5); // thread sleep in milliseconds
 
-            InvalidateRect(hwnd, NULL, true);
+            // Sleep(1500);
+
+            // mark window for redrawing
+            // InvalidateRect(hwnd, NULL, true);
 
             // printf("hi\n");
 
@@ -214,33 +265,33 @@ void DrawAscii()
     // can't use DC of other apps :()
     // so maybe make this window transparent, take full screenshot, and then turn to ascii?
     // HDC appDC = GetDC(GetForegroundWindow());
-    HDC appDC = GetDC(NULL);   // gets screenshot of whole screen
-    if (appDC == NULL)
-    {
-        printf("ruh roh\n");
-        return;
-    }
-    if (hMyDC == NULL)
-    {
-        printf("ruh roh2\n");
-        return;
-    }
+    // HDC desktopDC = GetDC(NULL);   // gets screenshot of whole screen
+    // if (desktopDC == NULL)
+    // {
+    //     printf("ruh roh\n");
+    //     return;
+    // }
+    // if (hMyDC == NULL)
+    // {
+    //     printf("ruh roh2\n");
+    //     return;
+    // }
 
     // The source DC is the whole screen, and the destination DC is the asci window (hwnd).
     // RECT    rcCli;          
     // GetClientRect(WindowFromDC(hMyDC), &rcCli);
 
-    if (!StretchBlt(hMyDC,
-        0, 0,
-        myWidth, myHeight,
-        appDC,
-        0, 0,
-        monitorWidth, monitorHeight,
-        SRCCOPY))
-    {
-        printf("StretchBlt failed.\n");
-        return;
-    }
+    // if (!StretchBlt(hMyDC,
+    //     0, 0,
+    //     myWidth, myHeight,
+    //     desktopDC,
+    //     0, 0,
+    //     monitorWidth, monitorHeight,
+    //     SRCCOPY))
+    // {
+    //     printf("StretchBlt failed.\n");
+    //     return;
+    // }
 
     // if (!BitBlt(hMyDC,
     //     0, 0, 
@@ -265,26 +316,32 @@ void DrawAscii()
     //     &bmi,
     //     DIB_RGB_COLORS
     // );
-
-    // LPCWSTR s = &b;
-
     // Rectangle(hMyDC, 0, 0, myWidth, myHeight);
-    // SetTextColor(hMyDC, RGB(50, 1, 1));
+    SetTextColor(hMyDC, TRANSPARENT_COLOR);
+    SetBkColor(hMyDC, BACKGROUND_COLOR);
 
-    // // Parse pixels for color and then draw le text
-    // for(int y = 0; y < myHeight; y += 12) {
-    //     for(int x = 0; x < myWidth; x += 12){
-    //         int p = (myHeight-y-1)*myWidth+x; // flip the right way, 0,0 in top left
-    //         SetTextColor(hMyDC, RGB(pPixels[p].rgbRed, pPixels[p].rgbGreen, pPixels[p].rgbBlue));
-    //         //SetTextColor(hMyDC, RGB(1, 1, 1));
-    //         //TextOutA(hMyDC, x, y, s, strlen(s));
-    //         //TextOutW(hMyDC, x, y, s, wcslen(s));  //only use wcslen for a string, not a single character
+    // Parse pixels for color and then draw le text
+    int i = 0;
 
-    //         //TextOutW(hMyDC, x, y, s, 1);
-    //         SetBkColor(hMyDC, RGB(pPixels[p].rgbRed, pPixels[p].rgbGreen, pPixels[p].rgbBlue));
-    //         ExtTextOutW(hMyDC, x, y, ETO_OPAQUE | ETO_IGNORELANGUAGE, NULL, s, 1, NULL);
-    //     }
-    // }
+    for(int y = 0; y < myHeight; y += 13) {
+        for(int x = 0; x < myWidth; x += 12){
+            int p = (myHeight-y-1)*myWidth+x; // flip the right way, 0,0 in top left
+            // SetTextColor(hMyDC, RGB(pPixels[p].rgbRed, pPixels[p].rgbGreen, pPixels[p].rgbBlue));
+            //TextOutA(hMyDC, x, y, s, strlen(s));
+            //TextOutW(hMyDC, x, y, s, wcslen(s));  //only use wcslen for a string, not a single character
+
+            //TextOutW(hMyDC, x, y, s, 1);
+            // SetBkColor(hMyDC, RGB(pPixels[p].rgbRed, pPixels[p].rgbGreen, pPixels[p].rgbBlue));
+            // ExtTextOutW(hMyDC, x, y, ETO_OPAQUE | ETO_IGNORELANGUAGE, NULL, s, 1, NULL);
+
+            // printable ascii range is 32 (space) through 126 (~)
+            // myChar = (int) rand() % (126 - 32 + 1) + 32;
+            myChar = charString[i++ % (CHARS - 1)];
+            ExtTextOutW(hMyDC, x, y, ETO_OPAQUE, NULL, c, 1, NULL);
+        }
+    }
+
+    
 
     //HDC appDC = ::GetDC(hwnd);
     // BitBlt(appDC,100,100,nScreenWidth,nScreenHeight, hMyDC,0,0,SRCCOPY);
