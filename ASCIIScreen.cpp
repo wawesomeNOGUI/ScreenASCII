@@ -15,6 +15,7 @@ LPCWSTR c = &myChar;
 const COLORREF TRANSPARENT_COLOR = RGB(0, 0, 0);
 const COLORREF BACKGROUND_COLOR = RGB(1, 1, 1);
 
+HANDLE keyCheckHandle;
 
 int myWidth, myHeight;
 int monitorWidth, monitorHeight;
@@ -24,38 +25,9 @@ HBITMAP hMyBmp;
 RGBQUAD *pPixels;
 BITMAPINFO bmi;
 
-// https://stackoverflow.com/questions/4631292/how-to-detect-the-current-screen-resolution
-void GetMonitorRealResolution(HMONITOR hmon, int* pixelsWidth, int* pixelsHeight, MONITORINFOEX *info)
-{
-    GetMonitorInfo(hmon, info);
-    DEVMODE devmode = {};
-    devmode.dmSize = sizeof(DEVMODE);
-    EnumDisplaySettings(info->szDevice, ENUM_CURRENT_SETTINGS, &devmode);
-    *pixelsWidth = devmode.dmPelsWidth;
-    *pixelsHeight = devmode.dmPelsHeight;
-}
-
-// https://stackoverflow.com/questions/2382464/win32-full-screen-and-hiding-taskbar
-HWND CreateFullscreenWindow(HMONITOR hmon, HINSTANCE *hInstance, MONITORINFOEX *info)
-{
-    const wchar_t CLASS_NAME[]  = L"Sample Window Class";
-    
-    return CreateWindowEx(
-    0,
-    CLASS_NAME,
-    L"ASCII Screen",
-    WS_POPUP,
-    info->rcMonitor.left,
-    info->rcMonitor.top,
-    0,
-    0,
-    NULL,       // Parent window    
-    NULL,       // Menu
-    *hInstance,  // Instance handle
-    NULL        // Additional application data
-    );
-}
-
+// Function prototypes (forward declarations)
+void GetMonitorRealResolution(HMONITOR hmon, int* pixelsWidth, int* pixelsHeight, MONITORINFOEX *info);
+HWND CreateFullscreenWindow(HMONITOR hmon, HINSTANCE *hInstance, MONITORINFOEX *info);
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 void Wineventproc(
   HWINEVENTHOOK hWinEventHook,
@@ -66,7 +38,13 @@ void Wineventproc(
   DWORD idEventThread,
   DWORD dwmsEventTime
 );
+LRESULT CALLBACK KeyboardProc(
+  int    code,
+  WPARAM wParam,
+  LPARAM lParam
+);
 void DrawAscii();
+DWORD WINAPI CheckKeyStateLoop(LPVOID lpParam);
 
 int main()
 {
@@ -95,8 +73,6 @@ int main()
 
     HWND hwnd = CreateFullscreenWindow(hmon, &hInstance, &info);
 
-    ShowWindow(hwnd, SW_MAXIMIZE);
-
     // record this window's width and height
     // in my testing the windows width was sometimes different
     // than the monitor resolution even when window was fullscreen 
@@ -124,19 +100,19 @@ int main()
     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 
 
-    // Set event listener for when user's foreground window changes
-    // to redraw ascii screen
+    // Set event listener for foreground window changing
+    // no need to call UnhookWinEvent, automatically called 
+    // when this thread ends
+    // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-unhookwinevent#remarks
     SetWinEventHook(
-        EVENT_SYSTEM_FOREGROUND,
-        EVENT_SYSTEM_FOREGROUND,
-        NULL,
+        EVENT_SYSTEM_FOREGROUND,    // event min
+        EVENT_SYSTEM_FOREGROUND,    // event max
+        NULL,   // hook function not in DLL
         Wineventproc,   // hook function
         0,  // receive events from all process on current desktop
-        0,  // hook function assciated with existing threads on desktop
+        0,  // hook function assciated with all existing threads on desktop
         WINEVENT_OUTOFCONTEXT
     );
-
-
 
     // Setup for drawing
     // https://learn.microsoft.com/en-us/windows/win32/gdi/capturing-an-image
@@ -164,7 +140,17 @@ int main()
 	bmi.bmiHeader.biBitCount = 32;
 	bmi.bmiHeader.biCompression = BI_RGB;
 
-    // Run the message loop.
+    // Start keypress control thread
+    keyCheckHandle = CreateThread(
+        NULL,           // default security attributes
+        0,              // use default stack size  
+        CheckKeyStateLoop,  // function to run in new thread
+        hwnd,   // thread function parameters
+        0,      // thread runs immediately after creation
+        NULL    // pointer to variable to receive thread id
+    );
+
+    // Run the message and update loop.
     MSG msg = { };
     while (GetMessage(&msg, NULL, 0, 0) > 0)
     {
@@ -173,6 +159,38 @@ int main()
     }
 
     return 0;
+}
+
+// https://stackoverflow.com/questions/4631292/how-to-detect-the-current-screen-resolution
+void GetMonitorRealResolution(HMONITOR hmon, int* pixelsWidth, int* pixelsHeight, MONITORINFOEX *info)
+{
+    GetMonitorInfo(hmon, info);
+    DEVMODE devmode = {};
+    devmode.dmSize = sizeof(DEVMODE);
+    EnumDisplaySettings(info->szDevice, ENUM_CURRENT_SETTINGS, &devmode);
+    *pixelsWidth = devmode.dmPelsWidth;
+    *pixelsHeight = devmode.dmPelsHeight;
+}
+
+// https://stackoverflow.com/questions/2382464/win32-full-screen-and-hiding-taskbar
+HWND CreateFullscreenWindow(HMONITOR hmon, HINSTANCE *hInstance, MONITORINFOEX *info)
+{
+    const wchar_t CLASS_NAME[]  = L"Sample Window Class";
+    
+    return CreateWindowEx(
+    0,
+    CLASS_NAME,
+    L"ASCII Screen",
+    WS_POPUP | WS_MAXIMIZE | WS_VISIBLE,
+    info->rcMonitor.left,
+    info->rcMonitor.top,
+    0,
+    0,
+    NULL,       // Parent window    
+    NULL,       // Menu
+    *hInstance,  // Instance handle
+    NULL        // Additional application data
+    );
 }
 
 void Wineventproc(
@@ -196,6 +214,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_DESTROY:
         {
             printf("Goodbye!");
+            CloseHandle(keyCheckHandle);
             free(pPixels);
             PostQuitMessage(0);
         }
@@ -346,4 +365,45 @@ void DrawAscii()
     //HDC appDC = ::GetDC(hwnd);
     // BitBlt(appDC,100,100,nScreenWidth,nScreenHeight, hMyDC,0,0,SRCCOPY);
     // BitBlt(hMyDC, nScreenWidth/2, 0, nScreenWidth/2, nScreenHeight/2+250, hMyDC, 0, 0, SRCCOPY);
+}
+
+// used for checking if user presses bound key to exit program
+// or other specified function
+// only call this function once
+DWORD WINAPI CheckKeyStateLoop(LPVOID lpParam)
+{
+    bool kKeyDown = false;
+
+    HWND hwnd = (HWND) lpParam;
+
+    while(true)
+    {
+        Sleep(10); // thread sleep in milliseconds
+
+        // check keys
+        // GetAsyncKeyState is < 0 if key down
+        // GetAsyncKeyState uses virtual key codes:
+        // https://learn.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+
+
+        // toggle ASCIIScreen display
+        if (GetAsyncKeyState(0x4B) < 0 && !kKeyDown) // 0x4B == K
+        {
+            kKeyDown = true;
+
+            // check if window is minimized (iconic).
+            if (IsIconic(hwnd))
+            {
+                ShowWindow(hwnd, SW_MAXIMIZE);
+            }
+            else
+            {
+                ShowWindow(hwnd, SW_MINIMIZE);
+            }
+        }
+        else if (GetAsyncKeyState(0x4B) == 0 && kKeyDown)
+        {
+            kKeyDown = false;
+        }
+    }
 }
