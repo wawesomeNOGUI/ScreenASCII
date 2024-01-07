@@ -1,1 +1,1 @@
-gcc ASCIIScreen.cpp -mwindows
+gcc ASCIIScreen.cpp -mwindows -o ASCIIScreen.exe
