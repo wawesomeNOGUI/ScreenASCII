@@ -6,11 +6,11 @@
 #include <stdio.h>
 #include <time.h>
 
+// length of charString will be set by strlen(charString) in main
+int CHARS; 
+
 // character(s) to draw on screen
-const int CHARS = 6;
-const char charString[CHARS] = "GAMER";
-wchar_t myChar;
-LPCWSTR c = &myChar;
+const char charString[] = "H";
 
 const COLORREF TRANSPARENT_COLOR = RGB(0, 0, 0);
 const COLORREF BACKGROUND_COLOR = RGB(1, 1, 1);
@@ -48,6 +48,8 @@ DWORD WINAPI CheckKeyStateLoop(LPVOID lpParam);
 
 int main()
 {
+    CHARS = strlen(charString);
+
     srand(time(0));
     HINSTANCE hInstance;
 
@@ -341,6 +343,7 @@ void DrawAscii()
 
     // Parse pixels for color and then draw le text
     int i = 0;
+    wchar_t myChar;
 
     for(int y = 0; y < myHeight; y += 13) {
         for(int x = 0; x < myWidth; x += 12){
@@ -355,8 +358,8 @@ void DrawAscii()
 
             // printable ascii range is 32 (space) through 126 (~)
             // myChar = (int) rand() % (126 - 32 + 1) + 32;
-            myChar = charString[i++ % (CHARS - 1)];
-            ExtTextOutW(hMyDC, x, y, ETO_OPAQUE, NULL, c, 1, NULL);
+            myChar = charString[i++ % (CHARS)];
+            ExtTextOutW(hMyDC, x, y, ETO_OPAQUE, NULL, &myChar, 1, NULL);
         }
     }
 
