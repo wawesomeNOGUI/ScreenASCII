@@ -1,0 +1,1 @@
+gcc ASCIIScreenStencil.cpp -mwindows -o ASCIIScreenStencil.exe
