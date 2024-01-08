@@ -90,8 +90,12 @@ int main()
     // LONG cur_style = GetWindowLong(hwnd, GWL_EXSTYLE);
     SetWindowLong(hwnd, GWL_EXSTYLE, WS_EX_TRANSPARENT | WS_EX_LAYERED);
 
-    // Make black pixels transparent:
-    SetLayeredWindowAttributes(hwnd, TRANSPARENT_COLOR, 0, LWA_COLORKEY);
+    // Transparency settings for window
+    SetLayeredWindowAttributes(hwnd, 
+        TRANSPARENT_COLOR, // color that will be rendered fully transparent
+        255,    // 0 - 255 controls overall trnasparency of window (alpha value)
+        LWA_COLORKEY | LWA_ALPHA
+    );
 
     // set window to always on top
     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
