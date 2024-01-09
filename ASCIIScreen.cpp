@@ -19,7 +19,7 @@ HANDLE keyCheckHandle;
 
 int myWidth, myHeight;
 int monitorWidth, monitorHeight;
-HDC hMyDC, hdcMemDC;
+HDC hDesktopDC, hMyDC, hdcMemDC;
 // HRGN hMyRg;
 HBITMAP hMyBmp;
 RGBQUAD *pPixels;
@@ -95,12 +95,18 @@ int main()
     // LONG cur_style = GetWindowLong(hwnd, GWL_EXSTYLE);
     SetWindowLong(hwnd, GWL_EXSTYLE, WS_EX_TRANSPARENT | WS_EX_LAYERED);
 
-    // Make black pixels transparent:
-    SetLayeredWindowAttributes(hwnd, TRANSPARENT_COLOR, 0, LWA_COLORKEY);
+    // Transparency settings for window
+    SetLayeredWindowAttributes(hwnd, 
+        TRANSPARENT_COLOR, // color that will be rendered fully transparent
+        255,    // 0 - 255 controls overall trnasparency of window (alpha value)
+        LWA_COLORKEY | LWA_ALPHA
+    );
 
     // set window to always on top
     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 
+    // set window to not be included in screen capture
+    SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE); 
 
     // Set event listener for foreground window changing
     // no need to call UnhookWinEvent, automatically called 
@@ -118,31 +124,33 @@ int main()
 
     // Setup for drawing
     // https://learn.microsoft.com/en-us/windows/win32/gdi/capturing-an-image
-	HDC hMyDC = GetDC(hwnd);
+	hMyDC = GetDC(hwnd);
+    hDesktopDC = GetDC(NULL);
+
     // Create a compatible DC, which is used in a BitBlt from the window DC.
-    hdcMemDC = CreateCompatibleDC(hMyDC);
+    hdcMemDC = CreateCompatibleDC(hDesktopDC);
+	hMyBmp = CreateCompatibleBitmap(hDesktopDC, myWidth, myHeight);
+    SelectObject(hdcMemDC, hMyBmp);
+
+    //set Background Color
+    SelectObject(hdcMemDC, CreateSolidBrush(BACKGROUND_COLOR));
 
     // This is the best stretch mode.
     SetStretchBltMode(hMyDC, HALFTONE);
-
-	HBITMAP hMyBmp = CreateCompatibleBitmap(hMyDC, monitorWidth, monitorHeight);
-    SelectObject(hdcMemDC, hMyBmp);
-
-	// pPixels = new RGBQUAD[nScreenWidth * nScreenHeight];
-	pPixels = (RGBQUAD*) malloc(myWidth * myHeight * sizeof(RGBQUAD));
-
-	// printf("%d", nScreenWidth * nScreenHeight * sizeof(RGBQUAD));
-
-	// SelectObject(hMyDC, CreateSolidBrush(backgroundColor));
+    SetStretchBltMode(hdcMemDC, HALFTONE);
 
 	bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
 	bmi.bmiHeader.biWidth = myWidth;
-	bmi.bmiHeader.biHeight = myHeight;
+	bmi.bmiHeader.biHeight = -myHeight;  // negative sets origin in top left
 	bmi.bmiHeader.biPlanes = 1;
 	bmi.bmiHeader.biBitCount = 32;
 	bmi.bmiHeader.biCompression = BI_RGB;
 
+	pPixels = (RGBQUAD*) malloc(myWidth * myHeight * sizeof(RGBQUAD));
+
     // Start keypress control thread
+    // could also look into using hot keys:
+    // https://learn.microsoft.com/en-us/windows/win32/Controls/hot-key-controls
     keyCheckHandle = CreateThread(
         NULL,           // default security attributes
         0,              // use default stack size  
@@ -225,19 +233,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_PAINT:
         {
             PAINTSTRUCT ps;
-            hMyDC = BeginPaint(hwnd, &ps); 
-  
-            // static int x = 0;
+            BeginPaint(hwnd, &ps); 
 
-            // printf("%d\n", x);
-
-            RECT rect;
-            GetClientRect(hwnd, &rect);
-
-            // RGB(0, 0, 0) is the transparent color defined at top
             // FillRect(hMyDC, &rect, CreateSolidBrush(TRANSPARENT_COLOR));
-            FillRect(hMyDC, &rect, CreateSolidBrush(BACKGROUND_COLOR));
-
             DrawAscii();
 
             EndPaint(hwnd, &ps); 
@@ -245,33 +243,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             // RECT rect;
             // GetClientRect(hwnd, &rect);
 
-            // Sleep(0.5); // thread sleep in milliseconds
+            Sleep(10.5); // thread sleep in milliseconds
 
             // Sleep(1500);
 
-            // mark window for redrawing
-            // InvalidateRect(hwnd, NULL, true);
-
-            // printf("hi\n");
-
-            
-
-
-            // maybe put this in function whenever something changes
-            // or just once when app starts
-            // probably don't need to be called every update?
-            // HDC appDC = GetDC(GetForegroundWindow());
-            
-            // DrawAscii();
-
-            //Draw Everything / and/or update window position/size
-            // BLENDFUNCTION blend = { 0 };
-            // blend.BlendOp = AC_SRC_OVER;
-            // blend.SourceConstantAlpha = 255;
-            // blend.AlphaFormat = AC_SRC_ALPHA;
-
-            // UpdateLayeredWindow(hwnd, NULL, NULL, NULL,
-            // hMyDC, NULL, RGB(0, 0, 0), &blend, ULW_OPAQUE);
+            // mark window for redrawing if not minimized
+            if (!IsIconic(hwnd))
+                InvalidateRect(hwnd, NULL, true);
         }
         return 0;
 
@@ -285,89 +263,65 @@ void DrawAscii()
     // https://stackoverflow.com/questions/53379482/bitblt-captured-pixels-are-all-zero-bgra-when-using-hdc-of-another-app
     // can't use DC of other apps :()
     // so maybe make this window transparent, take full screenshot, and then turn to ascii?
-    // HDC appDC = GetDC(GetForegroundWindow());
-    // HDC desktopDC = GetDC(NULL);   // gets screenshot of whole screen
-    // if (desktopDC == NULL)
-    // {
-    //     printf("ruh roh\n");
-    //     return;
-    // }
-    // if (hMyDC == NULL)
-    // {
-    //     printf("ruh roh2\n");
-    //     return;
-    // }
 
-    // The source DC is the whole screen, and the destination DC is the asci window (hwnd).
-    // RECT    rcCli;          
-    // GetClientRect(WindowFromDC(hMyDC), &rcCli);
-
-    // if (!StretchBlt(hMyDC,
-    //     0, 0,
-    //     myWidth, myHeight,
-    //     desktopDC,
-    //     0, 0,
-    //     monitorWidth, monitorHeight,
-    //     SRCCOPY))
-    // {
-    //     printf("StretchBlt failed.\n");
-    //     return;
-    // }
-
-    // if (!BitBlt(hMyDC,
-    //     0, 0, 
-    //     GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN), 
-    //     appDC, 
-    //     0, 0, 
-    //     SRCCOPY))
-    // {
-    //     printf("BitBlt failed.\n");
-    //     return;
-    // }
-
-    // printf("hi2");
+    // The source DC is the whole screen, and the destination DC is buffer dc (hdcMemDC).
+    if (!StretchBlt(hdcMemDC,
+        0, 0,
+        myWidth, myHeight,
+        hDesktopDC,
+        0, 0,
+        monitorWidth, monitorHeight,
+        SRCCOPY))
+    {
+        printf("StretchBlt failed.\n");
+        return;
+    }
 
     // get pixel data into pPixels
-    // GetDIBits(
-    //     hMyDC,
-    //     hMyBmp,
-    //     0,
-    //     myHeight,
-    //     pPixels,
-    //     &bmi,
-    //     DIB_RGB_COLORS
-    // );
-    // Rectangle(hMyDC, 0, 0, myWidth, myHeight);
-    SetTextColor(hMyDC, TRANSPARENT_COLOR);
-    SetBkColor(hMyDC, BACKGROUND_COLOR);
+    GetDIBits(
+        hdcMemDC,
+        hMyBmp,
+        0,
+        myHeight,
+        pPixels,
+        &bmi,
+        DIB_RGB_COLORS
+    );
 
-    // Parse pixels for color and then draw le text
+    // fill background (BACKGROUND_COLOR already selected into hdcMemDC in main)
+    Rectangle(hdcMemDC, 0, 0, myWidth, myHeight);
+
+    // // Parse pixels for color and then draw le text
     int i = 0;
     wchar_t myChar;
 
     for(int y = 0; y < myHeight; y += 13) {
         for(int x = 0; x < myWidth; x += 12){
-            int p = (myHeight-y-1)*myWidth+x; // flip the right way, 0,0 in top left
-            // SetTextColor(hMyDC, RGB(pPixels[p].rgbRed, pPixels[p].rgbGreen, pPixels[p].rgbBlue));
-            //TextOutA(hMyDC, x, y, s, strlen(s));
-            //TextOutW(hMyDC, x, y, s, wcslen(s));  //only use wcslen for a string, not a single character
+            int p = (y * myWidth) + x;
 
-            //TextOutW(hMyDC, x, y, s, 1);
-            // SetBkColor(hMyDC, RGB(pPixels[p].rgbRed, pPixels[p].rgbGreen, pPixels[p].rgbBlue));
-            // ExtTextOutW(hMyDC, x, y, ETO_OPAQUE | ETO_IGNORELANGUAGE, NULL, s, 1, NULL);
+            SetTextColor(hdcMemDC, RGB(pPixels[p].rgbRed, pPixels[p].rgbGreen, pPixels[p].rgbBlue));
 
+            // set background here to make cool large pixely look
+            SetBkColor(hdcMemDC, RGB(pPixels[p].rgbRed, pPixels[p].rgbGreen, pPixels[p].rgbBlue));
+            
             // printable ascii range is 32 (space) through 126 (~)
             // myChar = (int) rand() % (126 - 32 + 1) + 32;
             myChar = charString[i++ % (CHARS)];
-            ExtTextOutW(hMyDC, x, y, ETO_OPAQUE, NULL, &myChar, 1, NULL);
+            ExtTextOutW(hdcMemDC, x, y, ETO_OPAQUE, NULL, &myChar, 1, NULL);
         }
     }
 
     
-
-    //HDC appDC = ::GetDC(hwnd);
-    // BitBlt(appDC,100,100,nScreenWidth,nScreenHeight, hMyDC,0,0,SRCCOPY);
-    // BitBlt(hMyDC, nScreenWidth/2, 0, nScreenWidth/2, nScreenHeight/2+250, hMyDC, 0, 0, SRCCOPY);
+    // Bit block transfer onto window dc
+    if (!BitBlt(hMyDC,
+        0, 0,
+        myWidth, myHeight,
+        hdcMemDC,
+        0, 0,
+        SRCCOPY))
+    {
+        // MessageBox(hwnd, L"BitBlt has failed", L"Failed", MB_OK);
+    }
 }
 
 // used for checking if user presses bound key to exit program
