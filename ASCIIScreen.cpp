@@ -4,13 +4,14 @@
 
 #include <windows.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <time.h>
 
-// length of charString will be set by strlen(charString) in main
-int CHARS; 
-
 // character(s) to draw on screen
-const char charString[] = "H";
+const char charString[] = "GAMER";
+
+// length of charString will be set by strlen(charString) in main
+const int CHARS = strlen(charString); 
 
 const COLORREF TRANSPARENT_COLOR = RGB(0, 0, 0);
 const COLORREF BACKGROUND_COLOR = RGB(1, 1, 1);
@@ -26,8 +27,8 @@ RGBQUAD *pPixels;
 BITMAPINFO bmi;
 
 // Function prototypes (forward declarations)
-void GetMonitorRealResolution(HMONITOR hmon, int* pixelsWidth, int* pixelsHeight, MONITORINFOEX *info);
-HWND CreateFullscreenWindow(HMONITOR hmon, HINSTANCE *hInstance, MONITORINFOEX *info);
+void GetMonitorRealResolution(HMONITOR hmon, int* pixelsWidth, int* pixelsHeight, MONITORINFO  *info);
+HWND CreateFullscreenWindow(HMONITOR hmon, HINSTANCE *hInstance, MONITORINFO  *info);
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 void Wineventproc(
   HWINEVENTHOOK hWinEventHook,
@@ -48,8 +49,6 @@ DWORD WINAPI CheckKeyStateLoop(LPVOID lpParam);
 
 int main()
 {
-    CHARS = strlen(charString);
-
     srand(time(0));
     HINSTANCE hInstance;
 
@@ -67,7 +66,7 @@ int main()
     HMONITOR hmon = MonitorFromWindow(GetForegroundWindow(),
                         MONITOR_DEFAULTTONEAREST);
 
-    MONITORINFOEX info = { sizeof(MONITORINFOEX) };
+    MONITORINFO info;
 
     // get this monitor's width and height for drawing
     GetMonitorRealResolution(hmon, &monitorWidth, &monitorHeight, &info);
@@ -173,18 +172,18 @@ int main()
 }
 
 // https://stackoverflow.com/questions/4631292/how-to-detect-the-current-screen-resolution
-void GetMonitorRealResolution(HMONITOR hmon, int* pixelsWidth, int* pixelsHeight, MONITORINFOEX *info)
+void GetMonitorRealResolution(HMONITOR hmon, int* pixelsWidth, int* pixelsHeight, MONITORINFO *info)
 {
     GetMonitorInfo(hmon, info);
     DEVMODE devmode = {};
     devmode.dmSize = sizeof(DEVMODE);
-    EnumDisplaySettings(info->szDevice, ENUM_CURRENT_SETTINGS, &devmode);
+    EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &devmode);
     *pixelsWidth = devmode.dmPelsWidth;
     *pixelsHeight = devmode.dmPelsHeight;
 }
 
 // https://stackoverflow.com/questions/2382464/win32-full-screen-and-hiding-taskbar
-HWND CreateFullscreenWindow(HMONITOR hmon, HINSTANCE *hInstance, MONITORINFOEX *info)
+HWND CreateFullscreenWindow(HMONITOR hmon, HINSTANCE *hInstance, MONITORINFO  *info)
 {
     const wchar_t CLASS_NAME[]  = L"Sample Window Class";
     
@@ -301,10 +300,15 @@ void DrawAscii()
         for(int x = 0; x < myWidth; x += 12){
             int p = (y * myWidth) + x;
 
-            SetTextColor(hdcMemDC, RGB(pPixels[p].rgbRed, pPixels[p].rgbGreen, pPixels[p].rgbBlue));
+            int avgColor = (pPixels[p].rgbRed + pPixels[p].rgbGreen + pPixels[p].rgbBlue) * 0.33;
+            COLORREF colorBlackAndWhite = RGB(avgColor, avgColor, avgColor);
+            SetTextColor(hdcMemDC, colorBlackAndWhite);
+
+
+            // SetTextColor(hdcMemDC, RGB(pPixels[p].rgbRed, pPixels[p].rgbGreen, pPixels[p].rgbBlue));
 
             // set background here to make cool large pixely look
-            SetBkColor(hdcMemDC, RGB(pPixels[p].rgbRed, pPixels[p].rgbGreen, pPixels[p].rgbBlue));
+            // SetBkColor(hdcMemDC, RGB(pPixels[p].rgbRed, pPixels[p].rgbGreen, pPixels[p].rgbBlue));
             
             // printable ascii range is 32 (space) through 126 (~)
             // myChar = (int) rand() % (126 - 32 + 1) + 32;
