@@ -106,6 +106,7 @@ int main()
     SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 
     // set window to not be included in screen capture
+    // WDA_EXCLUDEFROMCAPTURE requires at least win 10
     SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE); 
 
     // Set event listener for foreground window changing
@@ -288,7 +289,8 @@ void DrawAscii()
         DIB_RGB_COLORS
     );
 
-    // fill background (BACKGROUND_COLOR already selected into hdcMemDC in main)
+    // fill background
+    SetBkColor(hdcMemDC, BACKGROUND_COLOR);
     Rectangle(hdcMemDC, 0, 0, myWidth, myHeight);
 
     // // Parse pixels for color and then draw le text
